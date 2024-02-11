@@ -1,0 +1,23 @@
+alias: "[Decd Disable All Automations] - Confirmation Message"
+description: ""
+trigger:
+  - platform: time
+    at: "14:00:00"
+condition:
+  - condition: state
+    entity_id: sensor.my_phone
+    state: Not Connected
+    for:
+      hours: 336
+      minutes: 0
+      seconds: 0
+action:
+  - service: script.1689274909446
+    data: {}
+  - service: input_boolean.turn_on
+    data: {}
+    target:
+      entity_id:
+        - input_boolean.disable_all_automations_confirmation_sent
+        - input_boolean.disable_all_automations
+mode: single
