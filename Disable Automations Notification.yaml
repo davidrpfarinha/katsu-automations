@@ -1,0 +1,24 @@
+alias: Disable Automations Notification
+use_blueprint:
+  path: homeassistant/confirmable_notification.yaml
+  # it needs the confirmable notification automation
+  input:
+    notify_device: your device id
+    title: Automations to be turned off
+    message: All your automations will be turned off in case you don't postpone.
+    confirm_action:
+      - service: input_boolean.turn_off
+        data: {}
+        target:
+          entity_id:
+            - input_boolean.disable_all_automations
+            - input_boolean.disable_all_automations_confirmation_sent
+    confirm_text: Postpone
+    dismiss_text: Turn Off
+    dismiss_action:
+      - service: input_boolean.turn_on
+        data: {}
+        target:
+          entity_id: input_boolean.disable_all_automations
+icon: mdi:home-automation
+mode: restart
