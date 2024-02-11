@@ -1,0 +1,57 @@
+alias: "[Decd Disable All Automations] - Execution"
+description: ""
+trigger:
+  - platform: state
+    entity_id:
+      - input_boolean.disable_all_automations_confirmation_sent
+    to: "on"
+    for:
+      hours: 0
+      minutes: 30
+      seconds: 0
+condition:
+  - condition: state
+    entity_id: sensor.myiphone
+    state: Not Connected
+    for:
+      days: 14
+      hours: 0
+      minutes: 0
+      seconds: 0
+  - condition: state
+    entity_id: input_boolean.disable_all_automations
+    state: "on"
+action:
+  - service: automation.turn_off
+    data:
+      stop_actions: true
+    target:
+      entity_id:
+        - automation.automation_close_shutter_sun_dinning
+        - automation.automation_close_shutter_sun_entrance
+        - automation.automation_close_shutter_sun_guestroom
+        - automation.automation_close_shutter_sun_kitchen
+        - automation.automation_12
+        - automation.automation_close_shutter_sun_master_bedroom_west
+        - automation.automation_close_shutter_sun_wc_social
+        - automation.automation_close_shutter_sun_wc_suite
+        - automation.raide_higher
+        - automation.force_11_30
+        - automation.test_lights_on
+        - automation.new_automation_3
+        - automation.clear_snooze_state
+        - automation.automation_4
+        - automation.new_automation
+        - automation.new_automation_2
+        - automation.secondary_door
+        - automation.sonoff_zigbee_button
+        - automation.bedroom_lights
+        - automation.disable_all_automation
+        - automation.disable_all_automations_in_case_of
+        - automation.automation_cover_raise_on_alarm_weekend_alarm
+        - automation.ligar_ac_if_cold
+        - automation.automation_office_turn_off_after_leaving_work
+        - automation.close_all_covers_at_sunset
+    enabled: true
+mode: single
+
