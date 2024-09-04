@@ -1,0 +1,410 @@
+blueprint:
+  name: Sun Protection vAug24
+  description: close cover when sun is shining and open when stops
+  domain: automation
+  input:
+    cover_entity:
+      name: cover
+      selector:
+        entity:
+          domain: cover
+          
+    sun_position_start:
+      name: sun azimuth position start
+      description: Sun azimuth. when sun is below this value, shutter could be triggered
+      selector:
+        entity:
+          domain: input_number
+          
+    sun_position_end:
+      name: sun azimuth position end
+      description: Sun azimuth. when sun is over this value, shutter could be triggered
+      selector:
+        entity:
+          domain: input_number
+          
+    sun_elevation_start:
+      name: sun elevation to start
+      description: Sun elevation. when sun is over this value, shutter could be triggered
+      selector:
+        entity:
+          domain: input_number
+          
+    weather:
+      name: Weather service
+      selector:
+        entity:
+          domain: weather
+          
+    sensor:
+      name: Outdoor Sensor
+      selector:
+        entity:
+          domain: sensor
+          
+    outdoor_temp_1:
+      name: Pos1 - Outdoor temperature (Low)
+      description: Temperature above which the shutters will close
+      selector:
+        entity:
+          domain: input_number
+          
+
+    outdoor_temp_2:
+      name: Pos2 - Outdoor temperature (Medium)
+      description: Second temperature threshold above which the shutters will close
+      selector:
+        entity:
+          domain: input_number
+          
+    outdoor_temp_3:
+      name: Pos3 - Outdoor temperature (High)
+      description: Third temperature threshold above which the shutters will close
+      selector:
+        entity:
+          domain: input_number
+
+    alarm_to_override:
+      name: Alarm that will override Sunrise
+      description: Automation will only run when time is after than this input_datetime value.
+      default:
+      selector:
+        entity:
+          domain: input_datetime
+
+    alarm_weekend_to_override:
+      name: Weekend Alarm that will override Sunrise
+      description: Automation will only run when time is after than this input_datetime value.
+      default:
+      selector:
+        entity:
+          domain: input_datetime
+
+    home_temperature:
+      name: Temperature Inside
+      description: Automation will compare the outside temperature with the inside to only open if it is lower.
+      default:
+      selector:
+        entity:
+          domain: sensor
+    
+    homews_isinstalled:
+      name:  Home WS Installed
+      description: Validator of the status
+      default:
+      selector:
+        entity:
+          domain: input_boolean
+    
+    homews_temperature:
+      name:  Outside Temperature to be based on Home Weather Station
+      description: Automation will compare the outside temperature with the inside to only open if it is lower.
+      default:
+      selector:
+        entity:
+          domain: sensor
+    
+    homews_rainrate:
+      name:  Rain Rate to be based on Home Weather Station
+      description: Rain Rate to be based on Home Weather Station
+      default:
+      selector:
+        entity:
+          domain: sensor
+    
+    rainrate_pouring:
+      name:  Pouring Rain Rate
+      description: Rain Rate to be compared with
+      default:
+      selector:
+        entity:
+          domain: input_number
+          
+    rainrate_rainy:
+      name:  Rainy Rain Rate
+      description: Rain Rate to be compared with
+      default:
+      selector:
+        entity:
+          domain: input_number
+
+    nelsonws_temperature:
+      name:  Outside Temperature to be based on Nelson's Weather Station
+      description: Automation will compare the outside temperature with the inside to only open if it is lower.
+      default:
+      selector:
+        entity:
+          domain: sensor
+    
+    nelsonws_rainrate:
+      name: Rain Rate to be based on Nelson's Weather Station
+      description: Automation will compare the outside temperature with the inside to only open if it is lower.
+      default:
+      selector:
+        entity:
+          domain: sensor
+
+variables:
+    cover_e: !input cover_entity
+    var_e: "{{ 'var.' + cover_e[6:] }}"
+    protection_begin: !input sun_position_start
+    protection_end: !input sun_position_end
+    elevation_begin: !input sun_elevation_start
+    outdoor_temp: !input outdoor_temp_1
+    outdoor_temp_2: !input outdoor_temp_2
+    outdoor_temp_3: !input outdoor_temp_3
+    intermediate_position: "{{ 'var.intermediate_position'}}"
+    fully_closed_position: "{{ 'var.fully_closed_position'}}"
+    mid_afternoon_position: "{{ 'var.mid_afternoon_position'}}"
+    open_position_rainy: "{{ 'var.open_position_rainy'}}"
+    open_position: "{{ 'var.open_position'}}"
+    weather_service: !input weather
+    alarm_to_override: !input alarm_to_override
+    alarm_weekend_to_override: !input alarm_weekend_to_override
+    home_temperature: !input home_temperature
+    sensor: !input sensor
+    homews_isinstalled: !input homews_isinstalled
+    homews_temperature: !input homews_temperature
+    homews_rainrate: !input homews_rainrate
+    rainrate_pouring: !input rainrate_pouring
+    rainrate_rainy: !input rainrate_rainy
+    nelsonws_temperature: !input nelsonws_temperature
+    nelsonws_rainrate: !input nelsonws_rainrate
+
+mode: parallel
+
+trace:
+    stored_traces: 300
+
+trigger:
+  - platform: time_pattern
+    minutes: "/5"
+  
+condition:
+  - condition: or
+    conditions:
+      - condition: template 
+        value_template: >
+          {% set current_time = now().strftime("%H:%M")  %}
+          {{ current_time > states[alarm_to_override].state  and  (now().weekday() in (1,2,3,4,5)) }}
+      - condition: template 
+        value_template: >
+          {% set current_time = now().strftime("%H:%M")  %}
+          {{ current_time > states[alarm_weekend_to_override].state  and  (now().weekday() in (0,6))}}
+  - condition: sun
+    before: sunset
+    after: sunrise
+    
+action:
+  - choose:
+      ##########################################################.
+      # close cover - third temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: template
+            value_template: "{{ states(var_e) != '1' }}"
+          - condition: template
+            value_template: "{{ state_attr('sun.sun', 'azimuth') > states(protection_begin) |float and state_attr('sun.sun', 'azimuth') < states(protection_end) |float and state_attr('sun.sun', 'elevation') > states(elevation_begin) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(open_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(intermediate_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(fully_closed_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(mid_afternoon_position) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ states(weather_service) == 'partlycloudy' }}"
+              - condition: template
+                value_template: "{{ states(weather_service) == 'sunny' }}"
+          - condition: template
+            value_template: >- 
+                {{ (is_state(homews_isinstalled , 'on') and states(outdoor_temp_3) |int > states(home_temperature) |int and states(homews_temperature) |int >= states(outdoor_temp_3) |int )
+                or (state_attr(weather_service, 'temperature') != None and is_state(homews_isinstalled , 'off') and states(outdoor_temp_3) |int > states(home_temperature) |int and state_attr(weather_service, 'temperature') |int >= states(outdoor_temp_3) |int) }}
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(fully_closed_position) |float }}"
+            service: cover.set_cover_position
+
+      ##########################################################
+      # close cover - second temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: template
+            value_template: "{{ states(var_e) != '1' }}"
+          - condition: template
+            value_template: "{{ state_attr('sun.sun', 'azimuth') > states(protection_begin) |float and state_attr('sun.sun', 'azimuth') < states(protection_end) |float and state_attr('sun.sun', 'elevation') > states(elevation_begin) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(open_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(intermediate_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(fully_closed_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(mid_afternoon_position) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ states(weather_service) == 'partlycloudy' }}"
+              - condition: template
+                value_template: "{{ states(weather_service) == 'sunny' }}"
+          - condition: template
+            value_template: "{{ state_attr(weather_service, 'temperature') != None and is_state(homews_isinstalled , 'off') and states(outdoor_temp_2) |int > states(home_temperature) |int and states(outdoor_temp_3) |int <= states(home_temperature) |int }}"
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(intermediate_position) |float }}"
+            service: cover.set_cover_position
+
+
+      ##########################################################
+      # close cover - first temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: template
+            value_template: "{{ states(var_e) != '1' }}"
+          - condition: template
+            value_template: "{{ state_attr('sun.sun', 'azimuth') > states(protection_begin) |float and state_attr('sun.sun', 'azimuth') < states(protection_end) |float and state_attr('sun.sun', 'elevation') > states(elevation_begin) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(open_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(intermediate_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(fully_closed_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(mid_afternoon_position) |float }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ states(weather_service) == 'partlycloudy' }}"
+              - condition: template
+                value_template: "{{ states(weather_service) == 'sunny' }}"
+          - condition: template
+            value_template: >-
+              {{ (is_state(homews_isinstalled , 'on') and states(outdoor_temp_3) |int > states(home_temperature) |int and states(homews_temperature) |int >= states(outdoor_temp_3) |int)
+              or (state_attr(weather_service, 'temperature') != None and states(outdoor_temp_3) |int > states(home_temperature) |int and state_attr(weather_service, 'temperature') |int >= states(outdoor_temp_3) |int) }}
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(mid_afternoon_position) |float }}"
+            service: cover.set_cover_position
+
+      ##########################################################
+      # set cover if rainy
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: sun
+            before: sunset
+            after: sunrise
+       #   - condition: template
+       #     value_template: "{{ state_attr('sun.sun', 'azimuth') > states(protection_begin) |float and state_attr('sun.sun', 'azimuth') < states(protection_end) |float and state_attr('sun.sun', 'elevation') > states(elevation_begin) |float }}"
+          - condition: template
+            value_template: >-
+              {{ states(weather_service) == 'rainy' and ( ( is_state(homews_isinstalled , 'on') and states(homews_rainrate) | float >= states(rainrate_rainy) | float and states(homews_rainrate) | float < states(rainrate_pouring) | float)  or  is_state(homews_isinstalled , 'off') ) }}"
+  
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(open_position_rainy) |float }}"
+            service: cover.set_cover_position
+
+      ##########################################################
+      # set cover if pouring
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: sun
+            before: sunset
+            after: sunrise
+       #   - condition: template
+       #     value_template: "{{ state_attr('sun.sun', 'azimuth') > states(protection_begin) |float and state_attr('sun.sun', 'azimuth') < states(protection_end) |float and state_attr('sun.sun', 'elevation') > states(elevation_begin) |float }}"
+          - condition: template
+            value_template: "{{ states(weather_service) == 'pouring' and ( ( is_state(homews_isinstalled , 'on') and states(homews_rainrate) | float >= states(rainrate_pouring) | float )  or  is_state(homews_isinstalled , 'off') ) }} "
+            
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(fully_closed_position) |float }}"
+            service: cover.set_cover_position
+
+      ##########################################################
+      # open cover before sunset
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: sun
+            before: sunset
+            after: sunrise
+          - condition: template
+            value_template: "{{ (state_attr('sun.sun', 'azimuth') < states(protection_begin) |float or state_attr('sun.sun', 'azimuth') > states(protection_end) |float or  state_attr('sun.sun', 'elevation') < states(elevation_begin) |float) }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(open_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(intermediate_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(fully_closed_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(mid_afternoon_position) |float }}"
+          - condition: template
+            value_template: >-
+              {{ (is_state(homews_isinstalled , 'on') and states(homews_temperature) |int < states(home_temperature) |int)
+              or (state_attr(weather_service, 'temperature') != None and state_attr(weather_service, 'temperature') |int < states(home_temperature) |int) 
+              or (state_attr(weather_service, 'temperature') == None and states(outdoor_temp) |int <= states(home_temperature) |int) }}"
+            
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(mid_afternoon_position) |float }}"
+            service: cover.set_cover_position
+
+
+      ##########################################################
+      # open cover
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{- is_state('input_boolean.cover_manage_cover_with_sun', 'on') -}}"
+          - condition: sun
+            before: sunset
+            after: sunrise
+          - condition: template
+            value_template: "{{ (state_attr('sun.sun', 'azimuth') < states(protection_begin) |float or state_attr('sun.sun', 'azimuth') > states(protection_end) |float or  state_attr('sun.sun', 'elevation') < states(elevation_begin) |float) }}"
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(open_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(intermediate_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(fully_closed_position) |float }}"
+              - condition: template
+                value_template: "{{ state_attr(cover_e, 'current_position') == states(mid_afternoon_position) |float }}"
+          - condition: template
+            value_template: "{{ (state_attr(weather_service, 'temperature') != None and state_attr(weather_service, 'temperature') |int < states(home_temperature) |int) or (state_attr(weather_service, 'temperature') == None and states(outdoor_temp) |int <= states(home_temperature) |int) }}"
+            
+        sequence:
+          - data_template:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states(open_position) |float }}"
+            service: cover.set_cover_position
