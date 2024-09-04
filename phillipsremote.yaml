@@ -1,0 +1,253 @@
+blueprint:
+  name: Philips Hue Dimmer Switch (v1) Zigbee2MQTT (Expanded with Base Topic and Controller)
+  description: Automate Philips Hue Dimmer Switch (v1) using Zigbee2MQTT integration
+    with detailed button actions.
+  domain: automation
+  input:
+    base_topic:
+      name: Base Topic
+      description: The MQTT base topic. Defaults to "zigbee2mqtt".
+      default: zigbee2mqtt
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    controller_name:
+      name: Controller Name
+      description: The name of the controller device. Defaults to "Philips Remote".
+      default: Philips Remote
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    on_press:
+      name: On Button Pressed
+      description: Action to run when the On button is pressed.
+      default: []
+      selector:
+        action: {}
+    on_press_release:
+      name: On Button Press Release
+      description: Action to run when the On button is pressed and released.
+      default: []
+      selector:
+        action: {}
+    on_hold:
+      name: On Button Held
+      description: Action to run when the On button is held.
+      default: []
+      selector:
+        action: {}
+    on_hold_release:
+      name: On Button Hold Release
+      description: Action to run when the On button hold is released.
+      default: []
+      selector:
+        action: {}
+    up_press:
+      name: Dim Up Button Pressed
+      description: Action to run when the Dim Up button is pressed.
+      default: []
+      selector:
+        action: {}
+    up_press_release:
+      name: Dim Up Button Press Release
+      description: Action to run when the Dim Up button is pressed and released.
+      default: []
+      selector:
+        action: {}
+    up_hold:
+      name: Dim Up Button Held
+      description: Action to run when the Dim Up button is held.
+      default: []
+      selector:
+        action: {}
+    up_hold_release:
+      name: Dim Up Button Hold Release
+      description: Action to run when the Dim Up button hold is released.
+      default: []
+      selector:
+        action: {}
+    down_press:
+      name: Dim Down Button Pressed
+      description: Action to run when the Dim Down button is pressed.
+      default: []
+      selector:
+        action: {}
+    down_press_release:
+      name: Dim Down Button Press Release
+      description: Action to run when the Dim Down button is pressed and released.
+      default: []
+      selector:
+        action: {}
+    down_hold:
+      name: Dim Down Button Held
+      description: Action to run when the Dim Down button is held.
+      default: []
+      selector:
+        action: {}
+    down_hold_release:
+      name: Dim Down Button Hold Release
+      description: Action to run when the Dim Down button hold is released.
+      default: []
+      selector:
+        action: {}
+    off_press:
+      name: Off Button Pressed
+      description: Action to run when the Off button is pressed.
+      default: []
+      selector:
+        action: {}
+    off_press_release:
+      name: Off Button Press Release
+      description: Action to run when the Off button is pressed and released.
+      default: []
+      selector:
+        action: {}
+    off_hold:
+      name: Off Button Held
+      description: Action to run when the Off button is held.
+      default: []
+      selector:
+        action: {}
+    off_hold_release:
+      name: Off Button Hold Release
+      description: Action to run when the Off button hold is released.
+      default: []
+      selector:
+        action: {}
+  source_url: https://github.com/davidrpfarinha/phillipsremotez2m/blob/main/phillipsremote.yaml
+trigger_variables:
+  base_topic: !input base_topic
+  controller_name: !input controller_name
+trigger:
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "on-press"
+  id: on_press
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "on-press-release"
+  id: on_press_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "on-hold"
+  id: on_hold
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "on-hold-release"
+  id: on_hold_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "up-press"
+  id: up_press
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "up-press-release"
+  id: up_press_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "up-hold"
+  id: up_hold
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "up-hold-release"
+  id: up_hold_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "down-press"
+  id: down_press
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "down-press-release"
+  id: down_press_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "down-hold"
+  id: down_hold
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "down-hold-release"
+  id: down_hold_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "off-press"
+  id: off_press
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "off-press-release"
+  id: off_press_release
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "off-hold"
+  id: off_hold
+- platform: mqtt
+  topic: "{{ base_topic }}/{{ controller_name }}/action"
+  payload: "off-hold-release"
+  id: off_hold_release
+action:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: on_press
+    sequence: !input on_press
+  - conditions:
+    - condition: trigger
+      id: on_press_release
+    sequence: !input on_press_release
+  - conditions:
+    - condition: trigger
+      id: on_hold
+    sequence: !input on_hold
+  - conditions:
+    - condition: trigger
+      id: on_hold_release
+    sequence: !input on_hold_release
+  - conditions:
+    - condition: trigger
+      id: up_press
+    sequence: !input up_press
+  - conditions:
+    - condition: trigger
+      id: up_press_release
+    sequence: !input up_press_release
+  - conditions:
+    - condition: trigger
+      id: up_hold
+    sequence: !input up_hold
+  - conditions:
+    - condition: trigger
+      id: up_hold_release
+    sequence: !input up_hold_release
+  - conditions:
+    - condition: trigger
+      id: down_press
+    sequence: !input down_press
+  - conditions:
+    - condition: trigger
+      id: down_press_release
+    sequence: !input down_press_release
+  - conditions:
+    - condition: trigger
+      id: down_hold
+    sequence: !input down_hold
+  - conditions:
+    - condition: trigger
+      id: down_hold_release
+    sequence: !input down_hold_release
+  - conditions:
+    - condition: trigger
+      id: off_press
+    sequence: !input off_press
+  - conditions:
+    - condition: trigger
+      id: off_press_release
+    sequence: !input off_press_release
+  - conditions:
+    - condition: trigger
+      id: off_hold
+    sequence: !input off_hold
+  - conditions:
+    - condition: trigger
+      id: off_hold_release
+    sequence: !input off_hold_release
