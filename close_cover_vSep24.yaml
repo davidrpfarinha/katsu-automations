@@ -261,27 +261,6 @@ action:
         data_template:
           entity_id: "{{ cover_e }}"
           position: "{{ states['var.open_position'] | float }}"
-  - choose:
-      - conditions:
-          - condition: state
-            entity_id: "{{ cover_e }}"
-            state: closed
-        sequence:
-          - action: logbook.log
-            data_template:
-              name: Cover Automation
-              message: "Cover {{ cover_e }} closed due to high temperature or rain."
-              entity_id: "{{ cover_e }}"
-      - conditions:
-          - condition: state
-            entity_id: "{{ cover_e }}"
-            state: open
-        sequence:
-          - action: logbook.log
-            data_template:
-              name: Cover Automation
-              message: "Cover {{ cover_e }} opened as conditions normalized."
-              entity_id: "{{ cover_e }}"
   - action: notify.notify
     data_template:
       title: Cover Automation Update
