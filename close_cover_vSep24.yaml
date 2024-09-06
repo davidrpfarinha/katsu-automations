@@ -1,7 +1,6 @@
 blueprint:
-  name: Sun Protection vAug24 Enhanced
-  description: Enhanced blueprint to control cover based on sun position,
-    temperature, weather conditions, and seasonal adjustments.
+  name: Sun Protection vSep24 Enhanced
+  description: Enhanced blueprint to control cover based on sun position, temperature, weather conditions, and seasonal adjustments.
   domain: automation
   input:
     cover_entity:
@@ -114,17 +113,18 @@ blueprint:
       default: none
 variables:
   cover_e: !input cover_entity
+  weather_e: !input weather
   sun_azimuth: "{{ state_attr('sun.sun', 'azimuth') | float }}"
   sun_elevation: "{{ state_attr('sun.sun', 'elevation') | float }}"
-  is_sunny: "{{ states(weather) in ['partlycloudy', 'sunny'] }}"
-  is_rainy: "{{ states(weather) == 'rainy' }}"
-  is_pouring: "{{ states(weather) == 'pouring' }}"
+  is_sunny: "{{ states(weather_e) in ['partlycloudy', 'sunny'] }}"
+  is_rainy: "{{ states(weather_e) == 'rainy' }}"
+  is_pouring: "{{ states(weather_e) == 'pouring' }}"
   indoor_temp: "{{ states[home_temperature].state | float }}"
   outdoor_temp: |-
     {% if is_state('input_boolean.homews_isinstalled', 'on') %}
       {{ states[homews_temperature].state | float }}
     {% else %}
-      {{ state_attr(weather, 'temperature') | float }}
+      {{ state_attr(weather_e, 'temperature') | float }}
     {% endif %}
   rain_rate: |-
     {% if is_state('input_boolean.homews_isinstalled', 'on') %}
@@ -146,7 +146,7 @@ trigger:
     value_template: "{{ sun_elevation > states.sun_elevation_start | float }}"
   - platform: state
     entity_id:
-      - weather
+      - weather_e
   - platform: state
     entity_id: season_selector
 condition:
@@ -187,9 +187,7 @@ action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ sun_azimuth > states.sun_position_start | float and
-              sun_azimuth < states.sun_position_end | float and sun_elevation >
-              states.sun_elevation_start | float }}"
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
           - condition: template
             value_template: "{{ is_sunny }}"
           - condition: template
@@ -204,15 +202,11 @@ action:
               position: "{{ states['var.fully_closed_position'] | float }}"
       - conditions:
           - condition: template
-            value_template: "{{ sun_azimuth > states.sun_position_start | float and
-              sun_azimuth < states.sun_position_end | float and sun_elevation >
-              states.sun_elevation_start | float }}"
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
           - condition: template
             value_template: "{{ is_sunny }}"
           - condition: template
-            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_medium and
-              outdoor_temp < adjusted_outdoor_temp_high and outdoor_temp >
-              indoor_temp }}"
+            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_medium and outdoor_temp < adjusted_outdoor_temp_high and outdoor_temp > indoor_temp }}"
           - condition: template
             value_template: "{{ ambient_light > light_level_threshold }}"
         sequence:
@@ -222,14 +216,11 @@ action:
               position: "{{ states['var.intermediate_position'] | float }}"
       - conditions:
           - condition: template
-            value_template: "{{ sun_azimuth > states.sun_position_start | float and
-              sun_azimuth < states.sun_position_end | float and sun_elevation >
-              states.sun_elevation_start | float }}"
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
           - condition: template
             value_template: "{{ is_sunny }}"
           - condition: template
-            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_low and outdoor_temp <
-              adjusted_outdoor_temp_medium and outdoor_temp > indoor_temp }}"
+            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_low and outdoor_temp < adjusted_outdoor_temp_medium and outdoor_temp > indoor_temp }}"
           - condition: template
             value_template: "{{ ambient_light > light_level_threshold }}"
         sequence:
@@ -239,8 +230,7 @@ action:
               position: "{{ states['var.mid_afternoon_position'] | float }}"
       - conditions:
           - condition: template
-            value_template: "{{ is_rainy and rain_rate >= states.rainrate_rainy | float and
-              rain_rate < states.rainrate_pouring | float }}"
+            value_template: "{{ is_rainy and rain_rate >= states.rainrate_rainy | float and rain_rate < states.rainrate_pouring | float }}"
         sequence:
           - action: cover.set_cover_position
             data_template:
@@ -256,20 +246,17 @@ action:
               position: "{{ states['var.fully_closed_position'] | float }}"
       - conditions:
           - condition: template
-            value_template: "{{ (sun_azimuth < states.sun_position_start | float or
-              sun_azimuth > states.sun_position_end | float or sun_elevation <
-              states.sun_elevation_start | float) }}"
+            value_template: "{{ (sun_azimuth < states.sun_position_start | float or sun_azimuth > states.sun_position_end | float or sun_elevation < states.sun_elevation_start | float) }}"
           - condition: template
             value_template: "{{ ambient_light < light_level_threshold }}"
           - condition: template
-            value_template: "{{ (outdoor_temp < indoor_temp and outdoor_temp <=
-              states.outdoor_temp_low | float) }}"
+            value_template: "{{ (outdoor_temp < indoor_temp and outdoor_temp <= states.outdoor_temp_low | float) }}"
         sequence:
           - action: cover.set_cover_position
             data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.open_position'] | float }}"
-  - default:
+    default:
       - action: cover.set_cover_position
         data_template:
           entity_id: "{{ cover_e }}"
@@ -283,7 +270,7 @@ action:
           - action: logbook.log
             data_template:
               name: Cover Automation
-              message: Cover {{ cover_e }} closed due to high temperature or rain.
+              message: "Cover {{ cover_e }} closed due to high temperature or rain."
               entity_id: "{{ cover_e }}"
       - conditions:
           - condition: state
@@ -293,9 +280,9 @@ action:
           - action: logbook.log
             data_template:
               name: Cover Automation
-              message: Cover {{ cover_e }} opened as conditions normalized.
+              message: "Cover {{ cover_e }} opened as conditions normalized."
               entity_id: "{{ cover_e }}"
   - action: notify.notify
     data_template:
       title: Cover Automation Update
-      message: Cover {{ cover_e }} moved to position {{ state_attr(cover_e, 'current_position') }}.
+      message: "Cover {{ cover_e }} moved to position {{ state_attr(cover_e, 'current_position') }}."
