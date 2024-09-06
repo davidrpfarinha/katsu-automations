@@ -113,7 +113,7 @@ blueprint:
           domain: sensor
       default: none
 variables:
-  cover_e: cover_entity
+  cover_e: !input cover_entity
   sun_azimuth: "{{ state_attr('sun.sun', 'azimuth') | float }}"
   sun_elevation: "{{ state_attr('sun.sun', 'elevation') | float }}"
   is_sunny: "{{ states(weather) in ['partlycloudy', 'sunny'] }}"
