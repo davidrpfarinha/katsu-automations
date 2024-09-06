@@ -1,1 +1,346 @@
+blueprint:
+  name: Sun Protection vAug24 Enhanced
+  description: Enhanced blueprint to control cover based on sun position, temperature, weather conditions, and seasonal adjustments.
+  domain: automation
+  input:
+    cover_entity:
+      name: Cover
+      selector:
+        entity:
+          domain: cover
+          
+    sun_position_start:
+      name: Sun Azimuth Start
+      description: Start azimuth value to trigger cover control
+      selector:
+        entity:
+          domain: input_number
+          
+    sun_position_end:
+      name: Sun Azimuth End
+      description: End azimuth value to trigger cover control
+      selector:
+        entity:
+          domain: input_number
+          
+    sun_elevation_start:
+      name: Sun Elevation Start
+      description: Minimum elevation to trigger cover control
+      selector:
+        entity:
+          domain: input_number
+          
+    weather:
+      name: Weather Service
+      selector:
+        entity:
+          domain: weather
+          
+    sensor:
+      name: Outdoor Sensor
+      selector:
+        entity:
+          domain: sensor
+          
+    outdoor_temp_low:
+      name: Low Temperature Threshold
+      description: Shutters will close if outdoor temp is above this value
+      selector:
+        entity:
+          domain: input_number
+          
+    outdoor_temp_medium:
+      name: Medium Temperature Threshold
+      description: Second temperature threshold for cover control
+      selector:
+        entity:
+          domain: input_number
+          
+    outdoor_temp_high:
+      name: High Temperature Threshold
+      description: Third temperature threshold for cover control
+      selector:
+        entity:
+          domain: input_number
 
+    alarm_to_override:
+      name: Alarm Override for Weekdays
+      description: Time after which automation is active on weekdays
+      selector:
+        entity:
+          domain: input_datetime
+
+    alarm_weekend_to_override:
+      name: Alarm Override for Weekends
+      description: Time after which automation is active on weekends
+      selector:
+        entity:
+          domain: input_datetime
+
+    home_temperature:
+      name: Indoor Temperature Sensor
+      description: Sensor to compare indoor and outdoor temperature
+      selector:
+        entity:
+          domain: sensor
+
+    homews_isinstalled:
+      name: Home Weather Station Installed
+      description: Boolean to indicate if home weather station is available
+      selector:
+        entity:
+          domain: input_boolean
+    
+    homews_temperature:
+      name: Home Weather Station Outdoor Temperature
+      selector:
+        entity:
+          domain: sensor
+    
+    homews_rainrate:
+      name: Home Weather Station Rain Rate
+      selector:
+        entity:
+          domain: sensor
+    
+    rainrate_pouring:
+      name: Pouring Rain Rate Threshold
+      selector:
+        entity:
+          domain: input_number
+          
+    rainrate_rainy:
+      name: Rainy Rain Rate Threshold
+      selector:
+        entity:
+          domain: input_number
+
+    season_selector:
+      name: Season Selector
+      description: Select the current season to adjust thresholds accordingly
+      selector:
+        entity:
+          domain: input_select
+          options:
+            - spring
+            - summer
+            - autumn
+            - winter
+
+    light_sensor:
+      name: Optional Light Sensor
+      description: (Optional) Light sensor to measure ambient light levels
+      selector:
+        entity:
+          domain: sensor
+      default: none
+
+variables:
+  cover_e: !input cover_entity
+  sun_azimuth: "{{ state_attr('sun.sun', 'azimuth') | float }}"
+  sun_elevation: "{{ state_attr('sun.sun', 'elevation') | float }}"
+  is_sunny: "{{ states(weather) in ['partlycloudy', 'sunny'] }}"
+  is_rainy: "{{ states(weather) == 'rainy' }}"
+  is_pouring: "{{ states(weather) == 'pouring' }}"
+  indoor_temp: "{{ states[home_temperature].state | float }}"
+  outdoor_temp: >-
+    {% if is_state('input_boolean.homews_isinstalled', 'on') %}
+      {{ states[homews_temperature].state | float }}
+    {% else %}
+      {{ state_attr(weather, 'temperature') | float }}
+    {% endif %}
+  rain_rate: >-
+    {% if is_state('input_boolean.homews_isinstalled', 'on') %}
+      {{ states[homews_rainrate].state | float }}
+    {% else %}
+      0
+    {% endif %}
+  current_season: "{{ states(season_selector) }}"
+  ambient_light: >-
+    {% if light_sensor != 'none' and states(light_sensor) %}
+      {{ states(light_sensor).state | float }}
+    {% else %}
+      1000  # Default value if no light sensor is provided
+    {% endif %}
+
+trigger:
+  - platform: time_pattern
+    minutes: "/15"  # Reduced frequency to 15 minutes
+    
+  - platform: template
+    value_template: "{{ sun_elevation > states.sun_elevation_start | float }}"  # Trigger based on sun elevation
+    
+  - platform: state
+    entity_id: 
+      - !input weather
+      
+  - platform: state
+    entity_id: !input season_selector
+
+condition:
+  - condition: or
+    conditions:
+      - condition: template
+        value_template: >-
+          {% set current_time = now().strftime("%H:%M") %}
+          {{ current_time > states[alarm_to_override].state and now().weekday() in (1, 2, 3, 4, 5) }}
+      - condition: template
+        value_template: >-
+          {% set current_time = now().strftime("%H:%M") %}
+          {{ current_time > states[alarm_weekend_to_override].state and now().weekday() in (0, 6) }}
+  - condition: sun
+    before: sunset
+    after: sunrise
+
+action:
+  - variables:
+      # Adjust thresholds based on season
+      adjusted_outdoor_temp_low: >-
+        {% if current_season == 'summer' %}
+          {{ states.outdoor_temp_low | float * 1.1 }}  # Example: Increase threshold by 10%
+        {% else %}
+          {{ states.outdoor_temp_low | float }}
+        {% endif %}
+      adjusted_outdoor_temp_medium: >-
+        {% if current_season == 'summer' %}
+          {{ states.outdoor_temp_medium | float * 1.1 }}
+        {% else %}
+          {{ states.outdoor_temp_medium | float }}
+        {% endif %}
+      adjusted_outdoor_temp_high: >-
+        {% if current_season == 'summer' %}
+          {{ states.outdoor_temp_high | float * 1.1 }}
+        {% else %}
+          {{ states.outdoor_temp_high | float }}
+        {% endif %}
+      light_level_threshold: 500  # Example threshold for ambient light
+
+  - choose:
+      ##########################################################.
+      # Close cover - high temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
+          - condition: template
+            value_template: "{{ is_sunny }}"
+          - condition: template
+            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_high and outdoor_temp > indoor_temp }}"
+          - condition: template
+            value_template: "{{ ambient_light > light_level_threshold }}"
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.fully_closed_position'] | float }}"
+              
+      ##########################################################
+      # Close cover - medium temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
+          - condition: template
+            value_template: "{{ is_sunny }}"
+          - condition: template
+            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_medium and outdoor_temp < adjusted_outdoor_temp_high and outdoor_temp > indoor_temp }}"
+          - condition: template
+            value_template: "{{ ambient_light > light_level_threshold }}"
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.intermediate_position'] | float }}"
+      
+      ##########################################################
+      # Close cover - low temperature threshold
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ sun_azimuth > states.sun_position_start | float and sun_azimuth < states.sun_position_end | float and sun_elevation > states.sun_elevation_start | float }}"
+          - condition: template
+            value_template: "{{ is_sunny }}"
+          - condition: template
+            value_template: "{{ outdoor_temp >= adjusted_outdoor_temp_low and outdoor_temp < adjusted_outdoor_temp_medium and outdoor_temp > indoor_temp }}"
+          - condition: template
+            value_template: "{{ ambient_light > light_level_threshold }}"
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.mid_afternoon_position'] | float }}"
+    
+      ##########################################################
+      # Set cover if rainy
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ is_rainy and rain_rate >= states.rainrate_rainy | float and rain_rate < states.rainrate_pouring | float }}"
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.open_position_rainy'] | float }}"
+    
+      ##########################################################
+      # Set cover if pouring
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ is_pouring and rain_rate >= states.rainrate_pouring | float }}"
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.fully_closed_position'] | float }}"
+    
+      ##########################################################
+      # Open cover based on temperature and light conditions
+      ##########################################################
+      - conditions:
+          - condition: template
+            value_template: "{{ (sun_azimuth < states.sun_position_start | float or sun_azimuth > states.sun_position_end | float or sun_elevation < states.sun_elevation_start | float) }}"
+          - condition: template
+            value_template: "{{ ambient_light < light_level_threshold }}"
+          - condition: template
+            value_template: >-
+              {{ (outdoor_temp < indoor_temp and outdoor_temp <= states.outdoor_temp_low | float) }}
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              entity_id: "{{ cover_e }}"
+              position: "{{ states['var.open_position'] | float }}"
+    
+    # Default fallback to open if no conditions met
+    - default:
+        - service: cover.set_cover_position
+          data:
+            entity_id: "{{ cover_e }}"
+            position: "{{ states['var.open_position'] | float }}"
+    
+    # Optional: Logging and Notifications
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: "{{ cover_e }}"
+              state: 'closed'
+          sequence:
+            - service: logbook.log
+              data:
+                name: Cover Automation
+                message: "Cover {{ cover_e }} closed due to high temperature or rain."
+                entity_id: "{{ cover_e }}"
+        - conditions:
+            - condition: state
+              entity_id: "{{ cover_e }}"
+              state: 'open'
+          sequence:
+            - service: logbook.log
+              data:
+                name: Cover Automation
+                message: "Cover {{ cover_e }} opened as conditions normalized."
+                entity_id: "{{ cover_e }}"
+    - service: notify.notify
+      data:
+        title: "Cover Automation Update"
+        message: "Cover {{ cover_e }} moved to position {{ state_attr(cover_e, 'current_position') }}."
