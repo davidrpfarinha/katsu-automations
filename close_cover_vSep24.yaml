@@ -1,4 +1,3 @@
----
 blueprint:
   name: Sun Protection vAug24 Enhanced
   description: Enhanced blueprint to control cover based on sun position,
@@ -199,8 +198,8 @@ action:
           - condition: template
             value_template: "{{ ambient_light > light_level_threshold }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.fully_closed_position'] | float }}"
       - conditions:
@@ -217,8 +216,8 @@ action:
           - condition: template
             value_template: "{{ ambient_light > light_level_threshold }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.intermediate_position'] | float }}"
       - conditions:
@@ -234,8 +233,8 @@ action:
           - condition: template
             value_template: "{{ ambient_light > light_level_threshold }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.mid_afternoon_position'] | float }}"
       - conditions:
@@ -243,16 +242,16 @@ action:
             value_template: "{{ is_rainy and rain_rate >= states.rainrate_rainy | float and
               rain_rate < states.rainrate_pouring | float }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.open_position_rainy'] | float }}"
       - conditions:
           - condition: template
             value_template: "{{ is_pouring and rain_rate >= states.rainrate_pouring | float }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.fully_closed_position'] | float }}"
       - conditions:
@@ -266,13 +265,13 @@ action:
             value_template: "{{ (outdoor_temp < indoor_temp and outdoor_temp <=
               states.outdoor_temp_low | float) }}"
         sequence:
-          - service: cover.set_cover_position
-            data:
+          - action: cover.set_cover_position
+            data_template:
               entity_id: "{{ cover_e }}"
               position: "{{ states['var.open_position'] | float }}"
   - default:
-      - service: cover.set_cover_position
-        data:
+      - action: cover.set_cover_position
+        data_template:
           entity_id: "{{ cover_e }}"
           position: "{{ states['var.open_position'] | float }}"
   - choose:
@@ -281,8 +280,8 @@ action:
             entity_id: "{{ cover_e }}"
             state: closed
         sequence:
-          - service: logbook.log
-            data:
+          - action: logbook.log
+            data_template:
               name: Cover Automation
               message: Cover {{ cover_e }} closed due to high temperature or rain.
               entity_id: "{{ cover_e }}"
@@ -291,12 +290,12 @@ action:
             entity_id: "{{ cover_e }}"
             state: open
         sequence:
-          - service: logbook.log
-            data:
+          - action: logbook.log
+            data_template:
               name: Cover Automation
               message: Cover {{ cover_e }} opened as conditions normalized.
               entity_id: "{{ cover_e }}"
-  - service: notify.notify
-    data:
+  - action: notify.notify
+    data_template:
       title: Cover Automation Update
       message: Cover {{ cover_e }} moved to position {{ state_attr(cover_e, 'current_position') }}.
